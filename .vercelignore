@@ -1,0 +1,10 @@
+.venv
+__pycache__
+*.png
+!static/**/*.png
+*.log
+._*
+render.yaml
+setup_garmin.py
+export_tokens.py
+make_icons.py

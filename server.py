@@ -24,6 +24,7 @@ log = logging.getLogger("goop")
 STATIC = Path(__file__).parent / "static"
 ACCESS_KEY = os.getenv("GOOP_ACCESS_KEY")  # optional on the LAN; REQUIRED when GOOP_CLOUD=1
 CLOUD = os.getenv("GOOP_CLOUD") == "1"     # public hosting (Render): key on every /api route, no LAN-only check
+SERVERLESS = os.getenv("GOOP_SERVERLESS") == "1" or os.getenv("VERCEL") == "1"  # Vercel: stateless, no password sign-in
 KEY_COOKIE = "goop_key"
 if CLOUD and not ACCESS_KEY:
     logging.getLogger("goop").error("GOOP_CLOUD=1 but GOOP_ACCESS_KEY is not set: every /api route will refuse requests.")
@@ -49,7 +50,8 @@ app = FastAPI(title="Goop")
 
 
 class _RateLimit:
-    """Tiny in-memory sliding window per client IP (single Render instance, so memory is enough)."""
+    """Tiny in-memory sliding window per client IP. On Render that's one instance; on Vercel it's per warm
+    instance only (best effort: a cold start resets it), which is fine since the access key is the real gate."""
     def __init__(self, n: int, per: float):
         self.n, self.per, self.hits = n, per, {}
         self.lock = threading.Lock()
@@ -72,6 +74,8 @@ LOGIN_LIMIT = _RateLimit(5, 900)   # Garmin sign-in/MFA attempts per IP per 15 m
 
 
 def _ip(request: Request) -> str:
+    if SERVERLESS and request.headers.get("x-real-ip"):  # Vercel's edge sets x-real-ip to the client IP
+        return request.headers["x-real-ip"].strip()
     if CLOUD and request.headers.get("x-forwarded-for"):  # Render's proxy sets this
         return request.headers["x-forwarded-for"].split(",")[-1].strip()  # rightmost = added by Render, not spoofable
     return request.client.host if request.client else "?"
@@ -502,7 +506,8 @@ def _status():
     return {"connected": live, "mode": s.mode, "name": getattr(s, "name", None) if live else None,
             "email": getattr(s, "email", None) if live else None,
             "last_sync": getattr(s, "last_sync", None) if live else None,
-            "token_store": tokens.backend(), "demo_reason": DEMO_REASON, "cloud": CLOUD}
+            "token_store": tokens.backend(), "demo_reason": DEMO_REASON, "cloud": CLOUD,
+            "serverless": SERVERLESS, "signin_available": not SERVERLESS}
 
 
 def _finish_login(api, email: str):
@@ -545,6 +550,15 @@ def garmin_status(request: Request):
     return _status()
 
 
+def _no_serverless_login():
+    """Password + MFA sign-in needs state across requests (pending MFA) and writable token storage,
+    neither of which exists on serverless. Tokens come from GOOP_GARMIN_TOKENS (export_tokens.py) instead."""
+    if SERVERLESS:
+        return JSONResponse({"status": "error", "error": "Sign-in isn't available on the hosted Goop. Connect Garmin "
+                             "on your Mac, run export_tokens.py and update GOOP_GARMIN_TOKENS in Vercel."}, 501)
+    return None
+
+
 def _login_limited(request: Request):
     if not LOGIN_LIMIT.allow(_ip(request)):
         log.warning("Garmin sign-in rate-limited")
@@ -562,6 +576,9 @@ def garmin_tokens(request: Request):
 @app.post("/api/garmin/login")
 def garmin_login(body: LoginBody, request: Request):
     _lan_only(request)
+    if (r := _no_serverless_login()):
+        body.password = ""
+        return r
     if (r := _login_limited(request)):
         body.password = ""
         return r
@@ -593,6 +610,8 @@ def garmin_login(body: LoginBody, request: Request):
 @app.post("/api/garmin/mfa")
 def garmin_mfa(body: MfaBody, request: Request):
     _lan_only(request)
+    if (r := _no_serverless_login()):
+        return r
     if (r := _login_limited(request)):
         return r
     p = _PENDING.get(body.pending_id)
@@ -686,7 +705,8 @@ def index():
 
 @app.get("/sw.js")  # served from root so its scope covers the whole app
 def sw():
-    return FileResponse(STATIC / "sw.js", media_type="application/javascript")
+    return FileResponse(STATIC / "sw.js", media_type="application/javascript",
+                        headers={"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"})
 
 
 @app.get("/manifest.webmanifest")

@@ -467,3 +467,8 @@ code{font-family:ui-monospace,Menlo,monospace;font-size:.92em;background:rgba(25
 .lock-box{width:100%;max-width:360px}
 .lock-logo{font-family:var(--font-num);font-weight:700;font-size:34px;letter-spacing:.3em;text-align:center;margin-bottom:18px}
 .lock[hidden]{display:none}
+/* Sleep coach card: all text white on the blue gradient (secondary in translucent white) */
+.sc-bar-card,.sc-bar-card .am-bar,.sc-bar-card .ttl,.sc-bar-card .fb,.sc-bar-card .sc-hl,.sc-bar-card .sc-tiles .v,
+.sc-bar-card .chip-s,.sc-bar-card .sc-link,.sc-bar-card .am-bar .chev,.sc-bar-card .empty,.sc-bar-card text{color:#fff;fill:#fff}
+.sc-bar-card .sc-sub,.sc-bar-card .sc-tiles .l,.sc-bar-card .sc-tiles .s,.sc-bar-card .sc-leg,.sc-bar-card .tag{color:rgba(255,255,255,.78)}
+.chip.sleep,.chip.sleep svg{color:#fff;stroke:#fff}

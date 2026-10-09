@@ -1,0 +1,10 @@
+# Pinned for reproducible deploys (Render) - tested on Python 3.13
+fastapi==0.143.0
+starlette==1.7.0
+pydantic==2.14.0
+uvicorn==0.54.0
+garminconnect==0.3.17
+curl_cffi==0.16.3
+requests==2.34.2
+# Keychain storage on the Mac only; the cloud uses GOOP_GARMIN_TOKENS (keyring is optional everywhere)
+keyring==25.7.0; sys_platform == "darwin"

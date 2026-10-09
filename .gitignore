@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.log
+screenshot*.png
+.goop/
+goop_tokens.json
+._*

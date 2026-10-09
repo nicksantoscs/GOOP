@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Goop">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/static/icons/icon-180.png">
+<link rel="icon" href="/static/icons/icon-192.png">
+<!-- iOS launch screens: dark, so a home-screen launch never flashes white -->
+<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/static/splash/launch-750x1334.png">
+<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/static/splash/launch-1125x2436.png">
+<link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/static/splash/launch-1170x2532.png">
+<link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/static/splash/launch-1179x2556.png">
+<link rel="apple-touch-startup-image" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/static/splash/launch-1206x2622.png">
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/static/splash/launch-828x1792.png">
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/static/splash/launch-1242x2688.png">
+<link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/static/splash/launch-1284x2778.png">
+<link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/static/splash/launch-1290x2796.png">
+<link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/static/splash/launch-1320x2868.png">
+<link rel="preload" href="/static/fonts/figtree-var.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/static/fonts/barlow-700.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/static/styles.css">
+<script>/* standalone (home-screen) detection before first paint */
+(function(){var s=navigator.standalone===true||(window.matchMedia&&matchMedia("(display-mode: standalone)").matches);if(s)document.documentElement.classList.add("standalone");})();</script>
+<title>Goop</title>
+</head>
+<body>
+<!-- Compact ring header, shown once the big rings scroll away (home only) -->
+<div id="mini" class="mini" aria-hidden="true"></div>
+
+<header class="top">
+  <button id="refresh" class="icon-btn" aria-label="Refresh">&#8635;</button>
+  <div class="datenav pill">
+    <button id="prev" class="arrow" aria-label="Previous day">&#8249;</button>
+    <label class="datepick"><span class="date" id="date">TODAY</span><input type="date" id="picker" aria-label="Pick a date"></label>
+    <button id="next" class="arrow" aria-label="Next day">&#8250;</button>
+  </div>
+  <span class="live-slot"><span id="live" class="live" hidden title="Live Garmin data"><i></i>LIVE</span></span>
+</header>
+<div id="demo" class="demo" hidden></div>
+<p id="err" class="err" hidden></p>
+
+<!-- ===================== HOME ===================== -->
+<main id="view-home" class="view">
+  <div class="wordmark">GOOP</div>
+  <section class="rings" id="rings">
+    <div class="ring" id="ring-sleep"></div>
+    <div class="ring" id="ring-recovery"></div>
+    <div class="ring" id="ring-strain"></div>
+  </section>
+
+  <section class="monitors">
+    <a class="card mon" id="hm-card" href="#health"></a>
+    <a class="card mon" id="sm-card" href="#stress"></a>
+  </section>
+
+  <h1 class="h1">My Day</h1>
+  <section class="card">
+    <h2>Today's Activities</h2>
+    <div id="activities"></div>
+  </section>
+  <section class="card am sc-bar-card" id="sleep-card" hidden>
+    <button class="am-bar" id="sc-bar" type="button" aria-expanded="false" aria-controls="sc-body"></button>
+    <div class="am-body" id="sc-body"><div class="in" id="sc-in"></div></div>
+  </section>
+
+  <section class="card am" id="am-card" hidden>
+    <button class="am-bar" id="am-bar" type="button" aria-expanded="false" aria-controls="am-body"></button>
+    <div class="am-body" id="am-body"><div class="in" id="am-in"></div></div>
+  </section>
+  <div class="dash-head"><h1 class="h1">My Dashboard</h1>
+    <button id="customize" class="cust-btn" type="button" aria-pressed="false">CUSTOMIZE <span aria-hidden="true">&#9998;</span></button></div>
+  <section id="dashboard"></section>
+
+  <section class="card"><h2>Last 7 Days</h2><div id="trend"></div></section>
+  <details class="card how"><summary>How Goop scores</summary>
+    <p><b>Recovery</b> blends last night's HRV vs your 7-day baseline (40%), resting HR vs baseline (25%), Garmin sleep score (25%) and Body Battery at wake (10%).</p>
+    <p><b>Strain</b> is a 0–21 log scale from Garmin training load, intensity minutes and steps: 21 × (1 − e<sup>−load/250</sup>).</p>
+    <p><b>Health Monitor</b> ranges are your mean ± 2 SD (with a minimum band) over up to 30 prior days.</p>
+  </details>
+</main>
+
+<!-- ===================== HEALTH MONITOR (#health) ===================== -->
+<main id="view-health" class="view" hidden>
+  <div class="subhead"><a href="#" class="back" aria-label="Back">&#8249;</a><span>Health Monitor</span><span></span></div>
+  <div id="health"></div>
+</main>
+
+<!-- ===================== STRESS MONITOR (#stress) ===================== -->
+<main id="view-stress" class="view" hidden>
+  <div class="subhead"><a href="#" class="back" aria-label="Back">&#8249;</a><span>Stress Monitor</span><span></span></div>
+  <div id="stress"></div>
+</main>
+
+<!-- ===================== SLEEP (#sleep) ===================== -->
+<main id="view-sleep" class="view" hidden>
+  <div class="subhead"><a href="#" class="back" aria-label="Back">&#8249;</a><span>Sleep</span><span></span></div>
+  <div id="sleep"></div>
+</main>
+
+<!-- ===================== HEALTH TAB: Fitness Age (#fitness) ===================== -->
+<main id="view-fitness" class="view" hidden>
+  <div class="fit-title">HEALTH</div>
+  <section class="blob-wrap">
+    <svg id="blob" viewBox="0 0 300 300" aria-hidden="true"></svg>
+    <div class="blob-text"><div class="age" id="fit-age">—</div><div class="lbl">FITNESS AGE</div><div class="src" id="fit-src"></div><div class="delta" id="fit-delta"></div></div>
+  </section>
+  <section class="card pace" id="fit-pace"></section>
+  <section class="card factors-card" id="fit-summary"></section>
+  <section class="card ecg-card" id="fit-ecg"><div class="hd"><h2>ECG</h2></div><div class="empty">Loading…</div></section>
+  <section id="fit-factors"></section>
+  <section class="card"><h2>Fitness Age trend</h2><div id="fit-trend"></div></section>
+  <p class="note" id="fit-note"></p>
+</main>
+
+<!-- ===================== MORE TAB: Settings (#settings) ===================== -->
+<main id="view-settings" class="view" hidden>
+  <div class="fit-title">SETTINGS</div>
+  <section class="card garmin-card">
+    <div class="g-head"><span class="g-logo">G</span><h2>Garmin Connect</h2></div>
+    <div id="g-status" class="g-status"><i class="dot"></i><span>Checking…</span></div>
+    <div id="g-meta" class="g-meta"></div>
+    <div class="g-actions">
+      <button type="button" class="btn-primary" id="g-connect">Connect Garmin</button>
+      <button type="button" class="btn-ghost" id="g-disconnect" hidden>Disconnect</button>
+    </div>
+  </section>
+  <a class="card more-row" href="#workout"><svg viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="3"/><path d="M12 8v5l3 2"/></svg><span><b>Send workout to watch</b><small>Build an interval session and send it to Garmin</small></span><i>&#8250;</i></a>
+  <a class="card more-row" href="#library"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg><span><b>Workout library</b><small>Run and ride templates targeting your HR zones</small></span><i>&#8250;</i></a>
+  <p class="note">Goop keeps only Garmin's sign-in tokens (valid about a year), never your password. Prefer the terminal? Run <code>python setup_garmin.py</code> on the computer running Goop.</p>
+</main>
+
+<!-- ===================== MORE › Send workout to watch (#workout) ===================== -->
+<main id="view-workout" class="view" hidden>
+  <div class="subhead"><a href="#settings" class="back" aria-label="Back">&#8249;</a><span>Send Workout</span><span></span></div>
+  <p id="wo-demo" class="wo-banner" hidden>DEMO MODE · You can build and preview, but sending is off until Garmin is connected in Settings.</p>
+  <a class="wo-browse" href="#library"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>Browse templates<i>&#8250;</i></a>
+  <p id="wo-from" class="wo-from" hidden></p>
+  <form id="wo-form" class="card wo-form" novalidate>
+    <div class="seg" role="radiogroup" aria-label="Sport">
+      <label><input type="radio" name="sport" value="running" checked><span>Run</span></label>
+      <label><input type="radio" name="sport" value="cycling"><span>Ride</span></label>
+    </div>
+    <label class="fld"><span>Name (optional)</span><input id="wo-name" name="name" maxlength="60" placeholder="Auto: e.g. Goop 5×3 min @ Z4"></label>
+    <div class="wo-grid">
+      <label class="fld"><span>Warm-up · min</span><input name="warmup_min" type="number" inputmode="decimal" min="0" max="60" value="10"></label>
+      <label class="fld"><span>Repeats</span><input name="repeats" type="number" inputmode="numeric" min="1" max="30" value="5"></label>
+      <label class="fld"><span>Recovery · min</span><input name="recovery_min" type="number" inputmode="decimal" min="0" max="30" step="0.25" value="2"></label>
+      <label class="fld"><span>Cool-down · min</span><input name="cooldown_min" type="number" inputmode="decimal" min="0" max="60" value="10"></label>
+    </div>
+    <div class="fld"><span>Work · each repeat</span></div>
+    <div id="wo-parts" class="wo-parts"></div>
+    <button type="button" class="wo-add" id="wo-add">+ Add part</button>
+    <label class="fld"><span>Date</span><input name="date" type="date" id="wo-date"></label>
+    <label class="wo-chk"><input type="checkbox" name="push" checked><span>Also push to my watch now <small>(otherwise it syncs from the Garmin calendar)</small></span></label>
+    <p id="wo-err" class="g-err" hidden></p>
+    <button type="submit" class="btn-primary wide" id="wo-preview">Review workout</button>
+  </form>
+  <p class="note">Goop builds the workout here, shows you exactly what will be sent, and only contacts Garmin after you confirm.</p>
+</main>
+
+<!-- ===================== MORE › Workout library (#library) ===================== -->
+<main id="view-library" class="view" hidden>
+  <div class="subhead"><a href="#settings" class="back" aria-label="Back">&#8249;</a><span>Workout Library</span><span></span></div>
+  <div class="lib-chips" id="lib-chips"></div>
+  <div id="lib-list"></div>
+  <p class="note">Targets are Garmin heart-rate zones, so your watch uses your own zone settings. Tap a template to tweak it before sending.</p>
+</main>
+
+<!-- Workout confirmation sheet -->
+<div id="wo-sheet" class="sheet-wrap" hidden>
+  <div class="sheet-backdrop" data-close></div>
+  <div class="sheet" role="dialog" aria-labelledby="wo-title">
+    <div class="sheet-grab"></div>
+    <div class="sheet-head"><h3 id="wo-title">Send to Garmin?</h3><button type="button" class="x" data-close aria-label="Close">&times;</button></div>
+    <div class="wo-sum">
+      <div class="wo-name" id="wo-s-name"></div>
+      <div class="wo-meta" id="wo-s-meta"></div>
+      <ol class="wo-steps" id="wo-s-steps"></ol>
+      <div class="wo-actions" id="wo-s-actions"></div>
+    </div>
+    <p id="wo-result" class="wo-result" hidden></p>
+    <p class="sheet-warn" id="wo-note"></p>
+    <button type="button" class="btn-primary wide" id="wo-confirm">Confirm &amp; send</button>
+    <button type="button" class="btn-ghost wide" data-close id="wo-cancel">Cancel</button>
+  </div>
+</div>
+
+<!-- Garmin sign-in sheet -->
+<div id="sheet" class="sheet-wrap" hidden>
+  <div class="sheet-backdrop" data-close></div>
+  <form class="sheet" id="g-form" autocomplete="on" novalidate>
+    <div class="sheet-grab"></div>
+    <div class="sheet-head"><h3 id="sheet-title">Sign in to Garmin</h3><button type="button" class="x" data-close aria-label="Close">&times;</button></div>
+    <div id="step-creds">
+      <label class="fld"><span>Email</span><input type="email" id="g-email" name="username" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" required></label>
+      <label class="fld"><span>Password</span><input type="password" id="g-pass" name="password" autocomplete="current-password" required></label>
+    </div>
+    <div id="step-mfa" hidden>
+      <p class="sheet-p">Garmin sent you a verification code. Enter it to finish signing in.</p>
+      <label class="fld"><span>Verification code</span><input type="text" id="g-code" inputmode="numeric" autocomplete="one-time-code" maxlength="10"></label>
+    </div>
+    <p id="g-err" class="g-err" hidden></p>
+    <button type="submit" class="btn-primary wide" id="g-submit">Sign in</button>
+    <p class="sheet-warn">⚠ Goop runs over plain HTTP, so this password crosses your home Wi-Fi unencrypted. Only use it on a trusted network, or use <code>setup_garmin.py</code> instead.</p>
+  </form>
+</div>
+
+<!-- Bottom tab bar: Home, Health (Fitness Age) and More (Settings) are wired up. -->
+<nav class="tabbar" aria-label="Tabs">
+  <div class="tabs">
+    <a class="tab" id="tab-home" href="#"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Home</a>
+    <a class="tab" id="tab-health" href="#fitness"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M5 12h4l1.5-3 2 6 1.5-3H19"/></svg>Health</a>
+    <a class="tab" id="tab-more" href="#settings"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>More</a>
+  </div>
+</nav>
+<!-- Access-key screen (shown when the server asks for GOOP_ACCESS_KEY, e.g. on Render) -->
+<div id="lock" class="lock" hidden>
+  <form class="lock-box" id="lock-form" novalidate>
+    <div class="lock-logo">GOOP</div>
+    <p class="sheet-p">Enter your Goop access key to continue. It's saved on this device as a secure cookie.</p>
+    <label class="fld"><span>Access key</span><input type="password" id="lock-key" autocomplete="current-password" autocapitalize="off" spellcheck="false"></label>
+    <p id="lock-err" class="g-err" hidden></p>
+    <button type="submit" class="btn-primary wide">Unlock</button>
+    <p class="sheet-warn">Waking up the server can take up to a minute after it's been idle.</p>
+  </form>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>

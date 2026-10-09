@@ -5,3 +5,10 @@ screenshot*.png
 .goop/
 goop_tokens.json
 ._*
+.env
+.env.*
+.DS_Store
+*.b64
+.sleep_schema.json
+*_tokens*.json
+/api_dumps/

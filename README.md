@@ -15,14 +15,14 @@ Set `GOOP_DEMO=1` to force demo mode. `GOOP_PORT` changes the port.
 Tokens are saved to `~/.goop/garmin_tokens` (mode 700), so later restarts don't need your password.
 
 ## Install on your phone
-1. Run Goop on a computer on the same Wi-Fi as your phone and find its LAN IP (e.g. 192.168.1.20).
-2. On the phone, open `http://192.168.1.20:8787`.
+1. Run Goop on a computer on the same Wi-Fi as your phone and find its LAN IP address.
+2. On the phone, open `http://<computer-LAN-IP>:8787`.
    * iPhone (Safari): Share, then Add to Home Screen. It opens full-screen like an app.
    * Android (Chrome): menu, then Add to Home screen.
    Over plain-HTTP LAN the offline service worker is disabled (browsers only allow it on HTTPS),
    but the app works fully whenever the phone can reach the computer.
 3. To use it away from home, put HTTPS in front of it (Tailscale, a Cloudflare Tunnel, or hosting)
-   and set `GOOP_ACCESS_KEY=<long random string>`. Then open it once with `?key=<that string>`.
+   and set `GOOP_ACCESS_KEY=<long random string>`. Then enter that key on Goop's key-entry screen when it asks.
    Doing this exposes your health data beyond your LAN, so choose deliberately.
 
 ## Scores

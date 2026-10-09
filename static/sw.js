@@ -1,5 +1,5 @@
 // Goop service worker: app shell stale-while-revalidate; API network-first with last-good fallback (offline viewing).
-const CACHE = "goop-v22";
+const CACHE = "goop-v23";
 const SHELL = ["/", "/static/styles.css", "/static/app.js", "/manifest.webmanifest",
   "/static/icons/icon-192.png", "/static/icons/icon-512.png",
   "/static/fonts/figtree-var.woff2", "/static/fonts/barlow-500.woff2", "/static/fonts/barlow-600.woff2", "/static/fonts/barlow-700.woff2"];

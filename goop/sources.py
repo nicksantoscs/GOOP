@@ -45,7 +45,7 @@ def _ts(v):
 
 def _empty_day(d: str) -> dict:
     return {
-        "date": d, "rhr": None, "hrv": None, "hrv_weekly": None, "hrv_status": None,
+        "date": d, "rhr": None, "hrv": None, "hrv_weekly": None, "hrv_status": None, "hrv_base_low": None, "hrv_base_high": None,
         "sleep": None, "body_battery": None, "steps": None, "step_goal": None,
         "active_kcal": None, "moderate_min": 0, "vigorous_min": 0, "stress_avg": None,
         "activities": [], "activity_load": 0.0, "readiness": None, "training_status": None,
@@ -296,11 +296,11 @@ class GarminSource:
         out["light"] = light
         stats = self._call(a.get_stats, d) or {}
         sleep = self._call(a.get_sleep_data, d) or {}
+        hrv = self._call(a.get_hrv_data, d) or {}  # also on light days: RHR+HRV 30-day chart
         if light:
-            hrv = hr = stress = mm = spo2 = {}
+            hr = stress = mm = spo2 = {}
             tr, acts = [], []
         else:
-            hrv = self._call(a.get_hrv_data, d) or {}
             hr = self._call(a.get_heart_rates, d) or {}
             tr = self._call(a.get_training_readiness, d) or []
             acts = self._call(a.get_activities_by_date, d, d) or []
@@ -393,6 +393,8 @@ class GarminSource:
         out["hrv"] = hs.get("lastNightAvg") or sleep.get("avgOvernightHrv")
         out["hrv_weekly"] = hs.get("weeklyAvg")
         out["hrv_status"] = hs.get("status")
+        bl = hs.get("baseline") or {}
+        out["hrv_base_low"], out["hrv_base_high"] = bl.get("balancedLow"), bl.get("balancedUpper")
 
         if isinstance(tr, list) and tr:
             t0 = tr[0]
@@ -539,6 +541,7 @@ class DemoSource:
         out["hrv"] = r.randint(48, 78)
         out["hrv_weekly"] = 62
         out["hrv_status"] = "BALANCED"
+        out["hrv_base_low"], out["hrv_base_high"] = 52, 74
         total = r.randint(6 * 3600 + 1200, 8 * 3600 + 1800)
         deep, rem = int(total * r.uniform(.14, .22)), int(total * r.uniform(.18, .26))
         awake_s = r.randint(600, 2400)

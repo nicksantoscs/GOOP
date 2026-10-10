@@ -254,6 +254,47 @@ def _health_monitor(t: dict, prior: list[dict]) -> dict:
             "current_hr": t.get("current_hr"), "metrics": rows}
 
 
+def _hr_hrv(days: list[dict]) -> dict:
+    """Aligned per-day RHR + overnight HRV (with Garmin's balanced baseline band) for the combined chart."""
+    series = [{"date": d["date"], "rhr": d["rhr"], "hrv": d["hrv"], "hrv_weekly": d.get("hrv_weekly"),
+               "hrv_baseline_low": d.get("hrv_base_low"), "hrv_baseline_high": d.get("hrv_base_high"),
+               "status": d.get("hrv_status")} for d in days]
+    t, prior = series[-1], series[:-1]
+    rhr_avg, _ = _avg([p["rhr"] for p in prior])
+    lo = next((p["hrv_baseline_low"] for p in reversed(series) if p["hrv_baseline_low"]), None)
+    hi = next((p["hrv_baseline_high"] for p in reversed(series) if p["hrv_baseline_high"]), None)
+    hrv_state = rhr_state = None
+    hrv_avg, n_hrv = _avg([p["hrv"] for p in prior])
+    hrv_ref = "baseline"
+    if t["hrv"] is not None and lo and hi:
+        hrv_state = "above" if t["hrv"] > hi else "below" if t["hrv"] < lo else "within"
+    elif t["hrv"] is not None and n_hrv >= 2:  # Garmin baseline still building: compare with his own recent average
+        hrv_ref = "average"
+        hrv_state = "above" if t["hrv"] > hrv_avg * 1.07 else "below" if t["hrv"] < hrv_avg * 0.93 else "within"
+    if t["rhr"] is not None and rhr_avg is not None:
+        diff = t["rhr"] - rhr_avg
+        rhr_state = "above" if diff >= 2 else "below" if diff <= -2 else "near"
+    insight = tone = None
+    if hrv_state and rhr_state:
+        h = {"above": f"HRV above {hrv_ref}", "within": f"HRV {'within baseline' if hrv_ref == 'baseline' else 'near average'}",
+             "below": f"HRV below {hrv_ref}"}[hrv_state]
+        r = {"above": "RHR above average", "below": "RHR below average", "near": "RHR near average"}[rhr_state]
+        if hrv_state == "below" and rhr_state == "above":
+            v, tone = "body under strain, take it easy", "red"
+        elif hrv_state == "below" or rhr_state == "above":
+            v, tone = "some strain showing, moderate effort", "yellow"
+        elif hrv_state == "above" or rhr_state == "below":
+            v, tone = "well recovered", "green"
+        else:
+            v, tone = "steady, recovering normally", "green"
+        insight = f"{h}, {r}: {v}"
+    elif t["rhr"] is not None and rhr_state:
+        insight, tone = f"RHR {rhr_state} your average" + ("" if t["hrv"] is not None else " (no overnight HRV yet)"), None
+    return {"series": series, "rhr_avg": round(rhr_avg, 1) if rhr_avg is not None else None,
+            "hrv_avg": round(hrv_avg, 1) if hrv_avg is not None else None, "hrv_ref": hrv_ref,
+            "baseline_low": lo, "baseline_high": hi, "today": t, "insight": insight, "tone": tone}
+
+
 def _stress_monitor(t: dict) -> dict | None:
     s = t.get("stress") or {}
     v = s.get("latest") if s.get("latest") is not None else s.get("avg")
@@ -313,6 +354,7 @@ def dashboard(day: str | None = None):
         "recommended_strain": scoring.recommended_strain(s["recovery"]["score"]),
         "health_monitor": _health_monitor(today, days[:-1]),
         "stress_monitor": _stress_monitor(today),
+        "hr_hrv": _hr_hrv(days),
         "tonight": _tonight(today, prior7, target == date.today()),
         "my_dashboard": _my_dashboard(days),
         "today": today, "trend": trend,

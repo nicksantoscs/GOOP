@@ -82,7 +82,8 @@ function seriesChart(series, o = {}) {
     ? pts.map(p => `<rect x="${X(p[0]) - 1}" y="${Y(p[1])}" width="2" height="${Y(lo) - Y(p[1])}" fill="${o.colorFn ? o.colorFn(p[1]) : o.color}"/>`).join("")
     : `<polyline points="${pts.map(p => `${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join(" ")}" fill="none" stroke="${o.color || C.stress}" stroke-width="1.8" stroke-linejoin="round"/>`;
   const mn = Math.min(...vals), mx = Math.max(...vals), av = vals.reduce((a, b) => a + b, 0) / vals.length;
-  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}">${g}${line}</svg>
+  const sc = scrubAttr(pts.map(p => [X(p[0]), [Y(p[1])], `<b>${fmt(p[1], o.nd || 0)}${o.unit ? " " + o.unit : ""}</b> · ${ampm(p[2])}${o.dayLabel ? " · " + o.dayLabel : ""}`, [o.colorFn ? o.colorFn(p[1]) : o.color || C.stress]]), T, H - B);
+  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}"${sc}>${g}${line}</svg>
     <div class="stats"><span>Min <b>${fmt(mn, o.nd || 0)}</b></span><span>Avg <b>${fmt(av, o.nd || 0)}</b></span><span>Max <b>${fmt(mx, o.nd || 0)}</b></span><span>${o.note ? esc(o.note) : ""}${o.band ? `<i style="display:inline-block;width:8px;height:8px;background:${C.ok};opacity:.5;margin:0 4px 0 8px"></i>${o.bandLabel || "normal range"}` : ""}</span></div></div>`;
 }
 function trendChart7(trend, o = {}) {
@@ -99,8 +100,105 @@ function trendChart7(trend, o = {}) {
     g += `<text x="${X(i)}" y="${H - 5}" text-anchor="middle" font-size="9" fill="${C.mut}">${wd(trend[i][0])}</text>`;
   });
   const mn = Math.min(...vals), mx = Math.max(...vals), av = vals.reduce((a, b) => a + b, 0) / vals.length;
-  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}">${g}</svg>
+  const sc = scrubAttr(xy.map((p, i) => p && [p[0], [p[1]], `<b>${fmt(p[2], o.nd || 0)}${o.unit ? " " + o.unit : ""}</b> · ${longDay(trend[i][0])}`, [o.color]]).filter(Boolean), T, H - B);
+  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}"${sc}>${g}</svg>
     <div class="stats"><span>Min <b>${fmt(mn, o.nd || 0)}</b></span><span>Avg <b>${fmt(av, o.nd || 0)}</b></span><span>Max <b>${fmt(mx, o.nd || 0)}</b></span><span>7-day trend</span></div></div>`;
+}
+
+const longDay = iso => new Date(iso.slice(0, 10) + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+/* ---------- press-and-hold scrubbing (Health Monitor charts) ----------
+   Each scrubbable <svg> carries data-scrub = [[x, [y...], tooltipHtml, [colour...]], ...] in viewBox units. */
+function scrubAttr(points, top, bottom) {
+  return points.length ? ` class="scrub" data-top="${top}" data-bot="${bottom}" data-scrub="${esc(JSON.stringify(points))}"` : "";
+}
+const SCRUB = { svg: null, pts: null, idx: -1, hideT: 0 };
+function scrubAt(svg, clientX) {
+  if (SCRUB.svg !== svg) { scrubHide(true); SCRUB.svg = svg; SCRUB.pts = JSON.parse(svg.dataset.scrub); }
+  clearTimeout(SCRUB.hideT);
+  const r = svg.getBoundingClientRect(), vb = svg.viewBox.baseVal, x = (clientX - r.left) / r.width * vb.width;
+  let idx = 0, best = Infinity;
+  SCRUB.pts.forEach((p, i) => { const d = Math.abs(p[0] - x); if (d < best) { best = d; idx = i; } });
+  const p = SCRUB.pts[idx], top = +svg.dataset.top, bot = +svg.dataset.bot;
+  let g = svg.querySelector("g.scrub-g");
+  if (!g) { g = document.createElementNS("http://www.w3.org/2000/svg", "g"); g.setAttribute("class", "scrub-g"); svg.appendChild(g); }
+  g.innerHTML = `<line x1="${p[0]}" x2="${p[0]}" y1="${top}" y2="${bot}" stroke="rgba(255,255,255,.55)" stroke-width="1"/>` +
+    p[1].map((y, i) => y == null ? "" : `<circle cx="${p[0]}" cy="${y}" r="5" fill="${p[3][i] || "#fff"}" stroke="#1a1d20" stroke-width="2"/>`).join("");
+  const chart = svg.closest(".chart");
+  let tip = chart.querySelector(".scrub-tip");
+  if (!tip) { tip = document.createElement("div"); tip.className = "scrub-tip"; chart.appendChild(tip); }
+  tip.innerHTML = p[2];
+  const px = p[0] / vb.width * r.width, w = tip.offsetWidth, cw = chart.clientWidth;
+  tip.style.left = Math.max(0, Math.min(cw - w, px - w / 2)) + "px";
+  tip.classList.add("show");
+  if (idx !== SCRUB.idx && navigator.vibrate && SCRUB.touch) try { navigator.vibrate(4); } catch (e) {}
+  SCRUB.idx = idx;
+}
+function scrubHide(now) {
+  const svg = SCRUB.svg; if (!svg) return;
+  const go = () => { svg.querySelector("g.scrub-g")?.remove(); svg.closest(".chart")?.querySelector(".scrub-tip")?.classList.remove("show"); if (SCRUB.svg === svg) { SCRUB.svg = null; SCRUB.idx = -1; } };
+  clearTimeout(SCRUB.hideT); now ? go() : SCRUB.hideT = setTimeout(go, 1200);
+}
+function bindScrub(root) {
+  root.addEventListener("pointerdown", e => {
+    const svg = e.target.closest("svg.scrub"); if (!svg) return;
+    SCRUB.touch = e.pointerType !== "mouse"; svg.setPointerCapture?.(e.pointerId); scrubAt(svg, e.clientX);
+  });
+  root.addEventListener("pointermove", e => {
+    const svg = e.target.closest("svg.scrub") || (SCRUB.svg && SCRUB.svg.hasPointerCapture?.(e.pointerId) ? SCRUB.svg : null);
+    if (svg && (e.pointerType === "mouse" || e.buttons || svg.hasPointerCapture?.(e.pointerId))) scrubAt(svg, e.clientX);
+  });
+  ["pointerup", "pointercancel"].forEach(t => root.addEventListener(t, () => scrubHide()));
+  root.addEventListener("pointerout", e => { if (e.pointerType === "mouse" && e.target.closest("svg.scrub") && !e.relatedTarget?.closest?.("svg.scrub")) scrubHide(); });
+}
+
+/* ---------- combined Resting HR + overnight HRV (Health Monitor › Resting Heart Rate) ---------- */
+const HRV_COL = st => ({ BALANCED: C.green, UNBALANCED: C.yellow, LOW: C.orange, POOR: C.red })[st] || C.hrv;
+const stName = st => st === "NONE" ? "Baseline building" : st ? st.charAt(0) + st.slice(1).toLowerCase().replace(/_/g, " ") : null;
+let hrHrvDays = 7;
+function hrHrvChart(series, o) {
+  const pts = series.slice(-hrHrvDays), n = pts.length;
+  const rv = pts.map(p => p.rhr).filter(v => v != null), hv = pts.map(p => p.hrv).filter(v => v != null);
+  if (!rv.length && !hv.length) return `<div class="empty">No resting HR or HRV in this range.</div>`;
+  const W = 340, H = 150, L = 28, R = 30, T = 12, B = 20;
+  const span = (a, extra = []) => { let lo = Math.min(...a, ...extra), hi = Math.max(...a, ...extra); const p = (hi - lo) * 0.15 || 2; return [lo - p, hi + p]; };
+  const band = o.baseline_low && o.baseline_high ? [o.baseline_low, o.baseline_high] : null;
+  const [rlo, rhi] = rv.length ? span(rv) : [40, 70], [hlo, hhi] = hv.length ? span(hv, band || []) : [30, 90];
+  const X = i => L + (n === 1 ? (W - L - R) / 2 : i / (n - 1) * (W - L - R));
+  const Yr = v => T + (1 - (v - rlo) / (rhi - rlo)) * (H - T - B), Yh = v => T + (1 - (v - hlo) / (hhi - hlo)) * (H - T - B);
+  let g = band ? `<rect x="${L}" width="${W - L - R}" y="${Yh(band[1])}" height="${Math.max(1, Yh(band[0]) - Yh(band[1]))}" fill="${C.hrv}" opacity=".12"/>` : "";
+  [rhi - (rhi - rlo) * 0.13, rlo + (rhi - rlo) * 0.13].forEach(v => g += `<text x="${L - 4}" y="${Yr(v) + 3}" text-anchor="end" font-size="9" fill="${C.hr}">${fmt(v)}</text>`);
+  [hhi - (hhi - hlo) * 0.13, hlo + (hhi - hlo) * 0.13].forEach(v => g += `<text x="${W - R + 4}" y="${Yh(v) + 3}" font-size="9" fill="${C.hrv}">${fmt(v)}</text>`);
+  const path = (k, Y) => { let d = "", pen = false; pts.forEach((p, i) => { if (p[k] == null) { pen = false; return; } d += `${pen ? "L" : "M"}${X(i).toFixed(1)},${Y(p[k]).toFixed(1)}`; pen = true; }); return d; };
+  g += `<path d="${path("rhr", Yr)}" fill="none" stroke="${C.hr}" stroke-width="2" stroke-linejoin="round"/>`;
+  g += `<path d="${path("hrv", Yh)}" fill="none" stroke="${C.hrv}" stroke-width="1.6" stroke-dasharray="4 3" opacity=".8"/>`;
+  const r = n > 10 ? 2 : 3.2;
+  pts.forEach((p, i) => {
+    if (p.rhr != null) g += `<circle cx="${X(i)}" cy="${Yr(p.rhr)}" r="${r}" fill="${C.hr}"/>`;
+    if (p.hrv != null) g += `<circle cx="${X(i)}" cy="${Yh(p.hrv)}" r="${r + .4}" fill="${HRV_COL(p.status)}" stroke="#2e3236" stroke-width="1"/>`;
+  });
+  const step = n > 10 ? Math.ceil(n / 6) : 1;
+  pts.forEach((p, i) => { if ((n - 1 - i) % step === 0) g += `<text x="${X(i)}" y="${H - 5}" text-anchor="middle" font-size="9" fill="${C.mut}">${n > 10 ? p.date.slice(5).replace("-", "/") : wd(p.date)}</text>`; });
+  const sc = scrubAttr(pts.map((p, i) => [X(i), [p.rhr != null ? Yr(p.rhr) : null, p.hrv != null ? Yh(p.hrv) : null],
+    `<span class="d">${longDay(p.date)}</span><span style="color:${C.hr}">RHR <b>${p.rhr ?? "—"}</b> bpm</span><span style="color:${HRV_COL(p.status)}">HRV <b>${p.hrv ?? "—"}</b> ms${p.status ? " · " + stName(p.status) : ""}</span>`,
+    [C.hr, HRV_COL(p.status)]]), T, H - B);
+  const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
+  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}"${sc}>${g}</svg>
+    <div class="stats"><span>RHR avg <b>${fmt(avg(rv))}</b></span><span>HRV avg <b>${fmt(avg(hv))}</b></span><span>${n} days</span></div>
+    <div class="legend"><span><i style="background:${C.hr}"></i>Resting HR (bpm)</span><span><i style="background:${C.hrv}"></i>Overnight HRV (ms)</span>${band ? `<span><i style="background:${C.hrv};opacity:.35"></i>HRV baseline</span>` : ""}</div></div>`;
+}
+function hrHrvView(o) {
+  if (!o) return "";
+  const t = o.today, tone = { green: C.green, yellow: C.yellow, red: C.red }[o.tone] || C.mut;
+  return `<div class="hrhrv"><div class="pair">
+      <div><div class="k">Resting HR</div><div class="x" style="color:${C.hr}">${t.rhr ?? "—"}<small> bpm</small></div><div class="s">${o.rhr_avg != null ? `${fmt(o.rhr_avg, 1)} avg` : "&nbsp;"}</div></div>
+      <div><div class="k">HRV · overnight</div><div class="x" style="color:${HRV_COL(t.status)}">${t.hrv ?? "—"}<small> ms</small></div><div class="s">${t.status ? stName(t.status) : "No status"}${!o.baseline_low && o.hrv_avg != null ? ` · ${fmt(o.hrv_avg, 0)} avg` : ""}${o.baseline_low ? ` · base ${o.baseline_low}–${o.baseline_high}` : ""}${t.hrv_weekly ? ` · 7-day ${t.hrv_weekly}` : ""}</div></div></div>
+    ${o.insight ? `<div class="insight"><i style="background:${tone}"></i>${esc(o.insight)}</div>` : ""}
+    <div class="seg" role="tablist">${[7, 30].map(d => `<button type="button" data-days="${d}" class="${d === hrHrvDays ? "on" : ""}" aria-selected="${d === hrHrvDays}">${d} DAYS</button>`).join("")}</div>
+    <div class="hrhrv-chart">${hrHrvChart(o.series, o)}</div></div>`;
+}
+function openHrHrv() {
+  location.hash = "#health";
+  setTimeout(() => { const el = $("acc-rhr"); if (!el) return; if (!el.classList.contains("open")) toggleAcc("rhr"); el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60);
 }
 
 /* ---------- accordion ---------- */
@@ -216,6 +314,8 @@ function renderDashboard() {
 
 $("customize").onclick = () => { dashEdit = !dashEdit; renderDashboard(); };
 $("dashboard").addEventListener("click", e => {
+  const hr = !dashEdit && e.target.closest('.drow[data-key="rhr"], .drow[data-key="hrv"]');
+  if (hr) return openHrHrv();
   const b = e.target.closest("button"); if (!b || !dashEdit) return;
   const key = b.closest(".drow").dataset.key;
   if (b.dataset.mv) {
@@ -312,7 +412,8 @@ function renderHealth(d) {
   let html = `<div class="card hero"><div class="big">${cur ? cur.bpm : "—"}<small>bpm</small></div>
     <div class="sub">${cur ? `${isToday ? "Latest reading" : "Last reading of the day"} · ${ampm(timeOf(cur.at))}` : "No heart-rate readings"}</div></div>`;
   html += accordion("hr", `<div class="t"><div class="n">Heart Rate · all day</div><div class="r">Tap for today's curve</div></div>`,
-    seriesChart(t.series.hr, { color: C.hr, band: rhrRow && rhrRow.low != null ? [rhrRow.low, rhrRow.high] : null, bandLabel: "resting range" }));
+    seriesChart(t.series.hr, { color: C.hr, unit: "bpm", band: rhrRow && rhrRow.low != null ? [rhrRow.low, rhrRow.high] : null, bandLabel: "resting range" })
+    + (d.hr_hrv ? `<button type="button" class="link-row" onclick="openHrHrv()">Resting HR + HRV trend<span>›</span></button>` : ""));
   html += `<div class="summary-line"><span class="chk ${h.within_range ? "ok" : h.total ? "flag" : "na"}">${h.within_range ? "✓" : "!"}</span>${h.ok}/${h.total} WITHIN RANGE</div>`;
   h.metrics.forEach(m => {
     const nd = m.key === "resp" || m.key === "skin" ? 1 : 0;
@@ -321,13 +422,22 @@ function renderHealth(d) {
     const range = m.low != null ? `Range ${fmt(m.low, nd)}–${fmt(m.high, nd)} ${m.unit} · ${m.baseline_days}-day baseline` : "Not enough history for a range";
     const chk = m.ok == null ? `<span class="chk na">–</span>` : m.ok ? `<span class="chk ok">✓</span>` : `<span class="chk flag">!</span>`;
     const band = m.low != null ? [m.low, m.high] : null;
-    const body = m.series ? seriesChart(t.series[m.series], { color: MCOL[m.key], band, nd, note: m.series_note, yMax: m.key === "spo2" ? 100 : null })
-      : trendChart7(m.trend, { color: MCOL[m.key], band, nd });
+    const body = m.key === "rhr" && d.hr_hrv ? hrHrvView(d.hr_hrv)
+      : m.series ? seriesChart(t.series[m.series], { color: MCOL[m.key], unit: m.unit, band, nd, note: m.series_note, yMax: m.key === "spo2" ? 100 : null })
+      : trendChart7(m.trend, { color: MCOL[m.key], unit: m.unit, band, nd });
     html += accordion(m.key, `${chk}<div class="t"><div class="n">${esc(m.label)}</div><div class="r">${range}</div></div><div class="v">${val}</div>`, body);
   });
   html += `<p class="note">Ranges are your mean ± 2 SD over up to 30 prior days. Skin temperature is Garmin's deviation from your own baseline (newer watches only).</p>`;
   $("health").innerHTML = html;
 }
+bindScrub($("health"));
+$("health").addEventListener("click", e => {
+  const b = e.target.closest(".hrhrv .seg button"); if (!b || !DATA?.hr_hrv) return;
+  hrHrvDays = +b.dataset.days;
+  const box = b.closest(".hrhrv");
+  box.querySelectorAll(".seg button").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-selected", x === b); });
+  box.querySelector(".hrhrv-chart").innerHTML = hrHrvChart(DATA.hr_hrv.series, DATA.hr_hrv);
+});
 
 /* ---------- STRESS MONITOR ---------- */
 const STRESS_ZONES = BANDS.map(b => [b.lo, b.hi, b.fill]);

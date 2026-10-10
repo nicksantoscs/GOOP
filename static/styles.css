@@ -472,3 +472,25 @@ code{font-family:ui-monospace,Menlo,monospace;font-size:.92em;background:rgba(25
 .sc-bar-card .chip-s,.sc-bar-card .sc-link,.sc-bar-card .am-bar .chev,.sc-bar-card .empty,.sc-bar-card text{color:#fff;fill:#fff}
 .sc-bar-card .sc-sub,.sc-bar-card .sc-tiles .l,.sc-bar-card .sc-tiles .s,.sc-bar-card .sc-leg,.sc-bar-card .tag{color:rgba(255,255,255,.78)}
 .chip.sleep,.chip.sleep svg{color:#fff;stroke:#fff}
+
+/* press-and-hold scrubbing + combined RHR/HRV */
+.chart{position:relative}
+#health svg.scrub{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;cursor:crosshair}
+.scrub-tip{position:absolute;top:-6px;transform:translateY(-100%);background:#15181b;border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:5px 8px;
+  font-size:11px;color:var(--txt2);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;display:flex;gap:8px;z-index:3;box-shadow:0 6px 18px rgba(0,0,0,.5)}
+.scrub-tip.show{opacity:1}
+.scrub-tip b{color:var(--txt);font-family:var(--font-num)}
+.scrub-tip .d{color:var(--mut)}
+.hrhrv .pair{display:grid;grid-template-columns:1fr 1fr;gap:var(--s2);margin-bottom:var(--s3)}
+.hrhrv .pair>div{background:var(--card2);border-radius:var(--r-pill);padding:var(--s3)}
+.hrhrv .k{font-size:var(--fs-s);color:var(--mut);text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+.hrhrv .x{font-family:var(--font-num);font-size:26px;font-weight:700;margin-top:2px}
+.hrhrv .x small{font-size:var(--fs-s);color:var(--mut)}
+.hrhrv .s{font-size:var(--fs-s);color:var(--txt2);margin-top:2px}
+.hrhrv .insight{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--txt);margin-bottom:var(--s3);line-height:1.35}
+.hrhrv .insight i{flex:none;width:8px;height:8px;border-radius:50%}
+.hrhrv .seg{display:flex;gap:6px;margin-bottom:38px}
+.hrhrv .seg button{flex:1;background:var(--card2);border:0;border-radius:var(--r-pill);color:var(--txt2);font-size:var(--fs-s);font-weight:700;letter-spacing:.06em;padding:6px 0}
+.hrhrv .seg button.on{background:var(--txt);color:#000}
+.link-row{width:100%;display:flex;justify-content:space-between;background:var(--card2);border:0;border-radius:var(--r-pill);color:var(--txt);font-size:13px;font-weight:600;padding:10px 12px;margin-top:var(--s3)}
+.link-row span{color:var(--txt2)}

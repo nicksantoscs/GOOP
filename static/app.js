@@ -372,7 +372,7 @@ let AM = null, amOpen = false, amReq = null;
 async function loadMorning() {
   const want = day; amReq = want;
   try {
-    const r = await fetch("/api/morning" + (day === todayIso() ? "" : `?day=${day}`), { headers: key ? { "x-goop-key": key } : {} });
+    const r = await fetch("/api/morning" + `?day=${day}`, { headers: key ? { "x-goop-key": key } : {} });
     if (!r.ok) throw new Error(`Server error ${r.status}`);
     const d = await r.json();
     if (amReq !== want) return;
@@ -440,7 +440,7 @@ let SLP = null, slpReq = null;
 async function loadSleep() {
   const want = day; slpReq = want;
   try {
-    const r = await fetch("/api/sleep" + (day === todayIso() ? "" : `?day=${day}`), { headers: key ? { "x-goop-key": key } : {} });
+    const r = await fetch("/api/sleep" + `?day=${day}`, { headers: key ? { "x-goop-key": key } : {} });
     if (!r.ok) throw new Error(`Server error ${r.status}`);
     const d = await r.json();
     if (slpReq !== want) return;
@@ -612,7 +612,7 @@ function shift(n) {
 async function load() {
   syncNav();
   try {
-    const q = day === todayIso() ? "" : `?day=${day}`;
+    const q = `?day=${day}`; // always send the phone's date: the server runs in UTC, so its "today" is tomorrow on evenings in the Americas
     const r = await fetch("/api/dashboard" + q, { headers: key ? { "x-goop-key": key } : {} });
     if (!r.ok) throw new Error(r.status === 401 ? "Unauthorized: open Goop with ?key=YOUR_KEY once" : `Server error ${r.status}`);
     const d = await r.json();
@@ -639,7 +639,7 @@ async function loadFitness() {
   const want = day;
   fitReq = want;
   try {
-    const r = await fetch("/api/fitness" + (day === todayIso() ? "" : `?day=${day}`), { headers: key ? { "x-goop-key": key } : {} });
+    const r = await fetch("/api/fitness" + `?day=${day}`, { headers: key ? { "x-goop-key": key } : {} });
     if (!r.ok) throw new Error(`Server error ${r.status}`);
     const d = await r.json();
     if (fitReq !== want) return;
@@ -773,7 +773,7 @@ function startBlob() {
 let ECG = null;
 async function loadEcg(want) {
   try {
-    const r = await fetch("/api/ecg" + (want === todayIso() ? "" : `?day=${want}`), { headers: key ? { "x-goop-key": key } : {} });
+    const r = await fetch("/api/ecg" + `?day=${want}`, { headers: key ? { "x-goop-key": key } : {} });
     if (!r.ok) throw new Error(`Server error ${r.status}`);
     ECG = await r.json(); if (want === day) renderEcg(ECG);
   } catch (e) { $("fit-ecg").innerHTML = `<div class="hd"><h2>ECG</h2></div><div class="empty">Couldn't load ECG: ${esc(e.message)}</div>`; }

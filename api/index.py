@@ -4,6 +4,7 @@ Serverless rules: only /tmp is writable, instances are short-lived, nothing pers
 """
 import os
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -12,6 +13,9 @@ sys.path.insert(0, str(ROOT))
 os.environ.setdefault("GOOP_CLOUD", "1")       # access key on every /api route, Secure cookie
 os.environ.setdefault("GOOP_SERVERLESS", "1")  # no in-app password sign-in, no disk writes
 os.environ.setdefault("GOOP_NO_KEYRING", "1")
+# Vercel runs in UTC: after 8 PM Toronto "today" became tomorrow (no data yet). Use the owner's zone for date.today().
+os.environ["TZ"] = os.environ.get("GOOP_TZ", "America/Toronto")
+time.tzset()
 os.environ.setdefault("GOOP_TOKEN_DIR", "/tmp/goop_tokens")  # never used in env mode; /tmp is the only writable path
 if not os.access(os.path.expanduser("~"), os.W_OK):
     os.environ["HOME"] = "/tmp"  # any library that touches ~ gets a writable place

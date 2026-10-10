@@ -286,7 +286,7 @@ def dashboard(day: str | None = None):
         target = date.fromisoformat(day) if day else date.today()
     except ValueError:
         raise HTTPException(400, "day must be YYYY-MM-DD")
-    if target > date.today():
+    if target > date.today() + timedelta(days=1):  # 1-day grace: phones ahead of UTC
         raise HTTPException(400, "day is in the future")
     dates = [(target - timedelta(days=i)).isoformat() for i in range(AVG_DAYS, -1, -1)]
     n_light = len(dates) - FULL_DAYS
@@ -325,7 +325,7 @@ def fitness_age(day: str | None = None):
         target = date.fromisoformat(day) if day else date.today()
     except ValueError:
         raise HTTPException(400, "day must be YYYY-MM-DD")
-    if target > date.today():
+    if target > date.today() + timedelta(days=1):  # 1-day grace: phones ahead of UTC
         raise HTTPException(400, "day is in the future")
     dates = [(target - timedelta(days=i)).isoformat() for i in range(13, -1, -1)]
     days = SOURCE.days(dates)  # same full-day cache the dashboard uses
@@ -362,7 +362,7 @@ def sleep_api(day: str | None = None):
         target = date.fromisoformat(day) if day else date.today()
     except ValueError:
         raise HTTPException(400, "day must be YYYY-MM-DD")
-    if target > date.today():
+    if target > date.today() + timedelta(days=1):  # 1-day grace: phones ahead of UTC
         raise HTTPException(400, "day is in the future")
     dates = [(target - timedelta(days=i)).isoformat() for i in range(6, -1, -1)]
     days = SOURCE.days(dates)  # per-day calls, cached by the source (same cache as the dashboard)
@@ -442,7 +442,7 @@ def morning(day: str | None = None):
         target = date.fromisoformat(day) if day else date.today()
     except ValueError:
         raise HTTPException(400, "day must be YYYY-MM-DD")
-    if target > date.today():
+    if target > date.today() + timedelta(days=1):  # 1-day grace: phones ahead of UTC
         raise HTTPException(400, "day is in the future")
     d, y = target.isoformat(), (target - timedelta(days=1)).isoformat()
     yday, t = SOURCE.days([y, d])

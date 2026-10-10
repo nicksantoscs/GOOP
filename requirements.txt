@@ -8,3 +8,6 @@ curl_cffi==0.16.3
 requests==2.34.2
 # Keychain storage on the Mac only; the cloud uses GOOP_GARMIN_TOKENS (keyring is optional everywhere)
 keyring==25.7.0; sys_platform == "darwin"
+# Encrypted token store in Postgres (Vercel/Neon); optional at runtime
+psycopg[binary]==3.3.6
+cryptography==50.0.2

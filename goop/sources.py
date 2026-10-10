@@ -45,7 +45,7 @@ def _ts(v):
 
 def _empty_day(d: str) -> dict:
     return {
-        "date": d, "rhr": None, "hrv": None, "hrv_weekly": None, "hrv_status": None, "hrv_base_low": None, "hrv_base_high": None,
+        "date": d, "rhr": None, "hrv": None, "hrv_weekly": None, "hrv_status": None, "hrv_base_low": None, "hrv_base_high": None, "hrv_night": None,
         "sleep": None, "body_battery": None, "steps": None, "step_goal": None,
         "active_kcal": None, "moderate_min": 0, "vigorous_min": 0, "stress_avg": None,
         "activities": [], "activity_load": 0.0, "readiness": None, "training_status": None,
@@ -329,6 +329,13 @@ class GarminSource:
         out["series"]["bb"] = _series(bbv, valid=lambda v: v >= 0)
         out["series"]["hr"] = _series(hr.get("heartRateValues"))
         out["series"]["hrv"] = _series(hrv.get("hrvReadings"))
+        hv = [p.get("hrvValue") for p in (hrv.get("hrvReadings") or []) if p.get("hrvValue")]
+        out["hrv_night"] = {  # 5-min overnight HRV readings: Garmin only measures during sleep
+            "start": _hhmm(hrv.get("startTimestampLocal")), "end": _hhmm(hrv.get("endTimestampLocal")),
+            "sleep_start": _hhmm(hrv.get("sleepStartTimestampLocal")), "sleep_end": _hhmm(hrv.get("sleepEndTimestampLocal")),
+            "n": len(hv), "min": min(hv) if hv else None, "max": max(hv) if hv else None,
+            "avg": (hrv.get("hrvSummary") or {}).get("lastNightAvg"),
+            "high_5min": (hrv.get("hrvSummary") or {}).get("lastNight5MinHigh")} if hrv else None
         sp_pts = spo2.get("continuousReadingDTOList") or spo2.get("spO2SingleValues") or spo2.get("spO2HourlyAverages")
         out["series"]["spo2"] = _series(sp_pts)
         if not light:

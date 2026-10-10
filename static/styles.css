@@ -494,3 +494,4 @@ code{font-family:ui-monospace,Menlo,monospace;font-size:.92em;background:rgba(25
 .hrhrv .seg button.on{background:var(--txt);color:#000}
 .link-row{width:100%;display:flex;justify-content:space-between;background:var(--card2);border:0;border-radius:var(--r-pill);color:var(--txt);font-size:13px;font-weight:600;padding:10px 12px;margin-top:var(--s3)}
 .link-row span{color:var(--txt2)}
+.hrv-night-h{font-size:var(--fs-s);color:var(--txt2);margin-bottom:34px}

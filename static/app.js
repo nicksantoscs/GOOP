@@ -65,11 +65,19 @@ function seriesChart(series, o = {}) {
   if (o.band) { lo = Math.min(lo, o.band[0]); hi = Math.max(hi, o.band[1]); }
   if (o.yMin != null) lo = o.yMin; if (o.yMax != null) hi = o.yMax;
   const pad = (hi - lo) * 0.08 || 1; lo -= o.yMin != null ? 0 : pad; hi += o.yMax != null ? 0 : pad;
-  const x0 = pts[0][0], x1 = Math.max(pts[pts.length - 1][0], x0 + 1);
+  let x0 = pts[0][0], x1 = Math.max(pts[pts.length - 1][0], x0 + 1);
+  let shade = null;
+  if (o.shade && o.shade[0] && o.shade[1]) {  // [HH:MM, HH:MM] window, aligned to the unwrapped axis
+    let a = toMin(o.shade[0]), b = toMin(o.shade[1]);
+    if (a - x0 > 600) a -= 1440; if (b < a) b += 1440;
+    shade = [a, b]; x0 = Math.min(x0, a); x1 = Math.max(x1, b);
+  }
+  if (o.hline != null) { lo = Math.min(lo, o.hline); hi = Math.max(hi, o.hline); }
   const X = m => L + (m - x0) / (x1 - x0) * (W - L - R), Y = v => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
   let g = "";
   (o.zones || []).forEach(z => g += `<rect x="${L}" width="${W - L - R}" y="${Y(Math.min(z[1], hi))}" height="${Math.max(0, Y(Math.max(z[0], lo)) - Y(Math.min(z[1], hi)))}" fill="${z[2]}"/>`);
   (o.grid || []).forEach(v => g += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="rgba(255,255,255,.28)" stroke-dasharray="3 3"/><text x="${L - 4}" y="${Y(v) + 3}" text-anchor="end" font-size="9" fill="${C.mut}">${v}</text>`);
+  if (shade) g += `<rect x="${X(shade[0])}" width="${X(shade[1]) - X(shade[0])}" y="${T}" height="${H - T - B}" fill="${C.sleep}" opacity=".13"/><text x="${X(shade[0]) + 3}" y="${T + 9}" font-size="8" fill="${C.sleep}">ASLEEP</text>`;
   if (o.band) g += `<rect x="${L}" width="${W - L - R}" y="${Y(o.band[1])}" height="${Math.max(1, Y(o.band[0]) - Y(o.band[1]))}" fill="${C.ok}" opacity=".13"/>`;
   [o.yMax != null ? hi : hi - pad, o.yMin != null ? lo : lo + pad].forEach(v => g += `<text x="${L - 4}" y="${Y(v) + 3}" text-anchor="end" font-size="9" fill="${C.mut}">${fmt(v, o.nd || 0)}</text>`);
   const nT = 5;
@@ -80,8 +88,10 @@ function seriesChart(series, o = {}) {
   }
   const line = o.bars
     ? pts.map(p => `<rect x="${X(p[0]) - 1}" y="${Y(p[1])}" width="2" height="${Y(lo) - Y(p[1])}" fill="${o.colorFn ? o.colorFn(p[1]) : o.color}"/>`).join("")
-    : `<polyline points="${pts.map(p => `${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join(" ")}" fill="none" stroke="${o.color || C.stress}" stroke-width="1.8" stroke-linejoin="round"/>`;
-  const mn = Math.min(...vals), mx = Math.max(...vals), av = vals.reduce((a, b) => a + b, 0) / vals.length;
+    : `<path d="${pts.map((p, i) => `${i && !(o.gapMin && p[0] - pts[i - 1][0] > o.gapMin) ? "L" : "M"}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join("")}" fill="none" stroke="${o.color || C.stress}" stroke-width="1.8" stroke-linejoin="round"/>`
+      + (o.hline != null ? `<line x1="${L}" x2="${W - R}" y1="${Y(o.hline)}" y2="${Y(o.hline)}" stroke="#f2f5f7" stroke-opacity=".6" stroke-dasharray="4 3"/><text x="${W - R}" y="${Y(o.hline) - 3}" text-anchor="end" font-size="9" fill="#f2f5f7">${esc(o.hlineLabel || "avg")} ${fmt(o.hline, o.nd || 0)}</text>` : "")
+      + (o.markExtremes ? [Math.min(...vals), Math.max(...vals)].map(v => { const p = pts.find(q => q[1] === v); return `<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="2.6" fill="${o.color}"/>`; }).join("") : "");
+  const mn = Math.min(...vals), mx = Math.max(...vals), av = o.hline != null ? o.hline : vals.reduce((a, b) => a + b, 0) / vals.length;
   const sc = scrubAttr(pts.map(p => [X(p[0]), [Y(p[1])], `<b>${fmt(p[1], o.nd || 0)}${o.unit ? " " + o.unit : ""}</b> · ${ampm(p[2])}${o.dayLabel ? " · " + o.dayLabel : ""}`, [o.colorFn ? o.colorFn(p[1]) : o.color || C.stress]]), T, H - B);
   return `<div class="chart"><svg viewBox="0 0 ${W} ${H}"${sc}>${g}${line}</svg>
     <div class="stats"><span>Min <b>${fmt(mn, o.nd || 0)}</b></span><span>Avg <b>${fmt(av, o.nd || 0)}</b></span><span>Max <b>${fmt(mx, o.nd || 0)}</b></span><span>${o.note ? esc(o.note) : ""}${o.band ? `<i style="display:inline-block;width:8px;height:8px;background:${C.ok};opacity:.5;margin:0 4px 0 8px"></i>${o.bandLabel || "normal range"}` : ""}</span></div></div>`;
@@ -422,7 +432,13 @@ function renderHealth(d) {
     const range = m.low != null ? `Range ${fmt(m.low, nd)}–${fmt(m.high, nd)} ${m.unit} · ${m.baseline_days}-day baseline` : "Not enough history for a range";
     const chk = m.ok == null ? `<span class="chk na">–</span>` : m.ok ? `<span class="chk ok">✓</span>` : `<span class="chk flag">!</span>`;
     const band = m.low != null ? [m.low, m.high] : null;
+    const hn = t.hrv_night;
     const body = m.key === "rhr" && d.hr_hrv ? hrHrvView(d.hr_hrv)
+      : m.key === "hrv" ? (hn && hn.n >= 2
+          ? `<div class="hrv-night-h">Last night · ${hn.n} readings every 5 min · ${ampm(hn.sleep_start || hn.start)} – ${ampm(hn.sleep_end || hn.end)}</div>`
+            + seriesChart(t.series.hrv, { color: C.hrv, unit: "ms", nd: 0, gapMin: 7, hline: hn.avg, hlineLabel: "night avg", markExtremes: true,
+                shade: [hn.sleep_start, hn.sleep_end], note: "overnight" })
+          : `<div class="empty">No overnight HRV readings for this night. Garmin only measures HRV while you sleep with the watch on.</div>`)
       : m.series ? seriesChart(t.series[m.series], { color: MCOL[m.key], unit: m.unit, band, nd, note: m.series_note, yMax: m.key === "spo2" ? 100 : null })
       : trendChart7(m.trend, { color: MCOL[m.key], unit: m.unit, band, nd });
     html += accordion(m.key, `${chk}<div class="t"><div class="n">${esc(m.label)}</div><div class="r">${range}</div></div><div class="v">${val}</div>`, body);
